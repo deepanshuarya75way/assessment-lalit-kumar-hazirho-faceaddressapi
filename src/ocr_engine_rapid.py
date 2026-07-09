@@ -9,10 +9,7 @@ class RapidOCREngine:
         self.engine = RapidOCR()
 
     def extract_text(self, image_path: str) -> str:
-        """
-        Accepts an absolute file path to an image, executes horizontal/vertical text region
-        detection, aggregates text blocks, and outputs a single sanitized text string.
-        """
+
         try:
             if not os.path.exists(image_path):
                 raise FileNotFoundError(
@@ -35,6 +32,5 @@ class RapidOCREngine:
             return "\n".join(clean_strings).strip()
 
         except Exception as e:
-            # Propagate or log server-side issues transparently for FastAPI middleware handling
-            print(f"❌ RapidOCR Subsystem Processing Error: {str(e)}")
+            print(f"RapidOCR Subsystem Processing Error: {str(e)}")
             raise e

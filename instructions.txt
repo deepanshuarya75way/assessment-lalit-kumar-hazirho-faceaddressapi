@@ -1,10 +1,10 @@
 install uv globally using pip / or other using your system package manager python-uv
 
 #run the following to create a virtual environment
-uv venv
+uv venv --python3.10
 
 #activate the virtual environment
 source .venv/bin/activate
 
 #install dependencies
-uv pip install deepface tensorflow rapidocr_onnxruntime googlemaps fastapi uvicorn python-multipart toml
+uv pip install deepface tensorflow rapidocr_onnxruntime googlemaps fastapi uvicorn python-multipart toml tf-keras

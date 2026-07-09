@@ -15,9 +15,8 @@ face_service = DeepFaceRecognitionEngine()
 TEMP_DIR = "data"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
+
 # ADDRESS
-
-
 @app.post("/v1/address/process", status_code=status.HTTP_200_OK)
 async def process_address_image(file: UploadFile = File(...)):
     if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
@@ -51,8 +50,6 @@ async def process_address_image(file: UploadFile = File(...)):
 
 
 # FACE recognition
-
-
 @app.post("/v1/face/encoding", status_code=status.HTTP_200_OK)
 async def generate_face_embedding(
     file: UploadFile = File(...),

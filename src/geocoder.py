@@ -40,5 +40,5 @@ def geocode_text_block(address_text: str) -> dict:
             "formatted_address": str(primary_match.get("formatted_address", "")),
         }
     except Exception as e:
-        print(f"❌ Exception: {str(e)}")
+        print(f"Exception: {str(e)}")
         raise e
