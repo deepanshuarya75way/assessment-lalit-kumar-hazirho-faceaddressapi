@@ -18,7 +18,7 @@ class DeepFaceRecognitionEngine:
             embedding_objs: list[dict[str, any]] = DeepFace.represent(  # type: ignore
                 img_path=image_path,
                 model_name="Facenet512",
-                detector_backend="opencv",
+                detector_backend="retinaface",
                 enforce_detection=True,
             )
             return embedding_objs[0]["embedding"]
