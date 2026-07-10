@@ -1,8 +1,6 @@
 import os
 import sys
 
-from pandas._libs.tslibs.offsets import Second
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 from src.face_engine import DeepFaceRecognitionEngine
