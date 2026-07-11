@@ -49,9 +49,7 @@ class DeepFaceRecognitionEngine:
             return {"error": f"Vector verification calculation failure: {str(e)}"}
 
     def verify_two_images(self, image_path_1: str, image_path_2: str) -> dict:
-        """
-        Reuses create_encoding and verify_two_encodings to eliminate pipeline duplication.
-        """
+
         try:
             print("[INFO] Extracting embeddings from image paths...")
             encoding_1 = self.create_encoding(image_path_1)
