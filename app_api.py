@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 import tempfile
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
@@ -15,8 +16,15 @@ face_service = DeepFaceRecognitionEngine()
 
 ALLOWED_MEDIA_TYPES = {"image/jpeg", "image/jpg", "image/png"}
 
-def validate_image_type(content_type: str) -> None:
-    """Centralized validation for supported image formats."""
+
+def validate_image_type(content_type: Optional[str]) -> None:
+    """Centralized validation for supported image formats handling missing headers."""
+    if not content_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing Content-Type header.",
+        )
+
     if content_type not in ALLOWED_MEDIA_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
