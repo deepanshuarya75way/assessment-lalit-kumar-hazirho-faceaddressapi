@@ -1,5 +1,6 @@
 import os
 import shutil
+from sys import path
 
 from fastapi import Body, FastAPI, File, HTTPException, UploadFile, status
 
@@ -97,7 +98,7 @@ async def generate_face_embedding(
 
 @app.post("/v1/face/verify", status_code=status.HTTP_200_OK)
 async def verify_two_faces(
-    encodings_1: list[float] = Body(...),
+    file_a: UploadFile = File(...),
     file_b: UploadFile = File(...),
 ):
     if file_b.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
@@ -105,19 +106,21 @@ async def verify_two_faces(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded verification media must be JPEG or PNG.",
         )
-
-    if len(encodings_1) != 512:
+    if file_a.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid input embedding dimension. Array length must contain exactly 512 elements.",
+            detail="Uploaded verification media must be JPEG or PNG.",
         )
 
     path_b = os.path.join(TEMP_DIR, f"verify_{os.getpid()}_B_{file_b.filename}")
+    path_a = os.path.join(TEMP_DIR, f"verify_{os.getpid()}_A_{file_a.filename}")
     try:
+        with open(path_a, "wb") as buffer_a:
+            shutil.copyfileobj(file_a.file, buffer_a)
         with open(path_b, "wb") as buffer_b:
             shutil.copyfileobj(file_b.file, buffer_b)
 
-        verification_result = face_service.verify_two_images(encodings_1, path_b)
+        verification_result = face_service.verify_two_images(path_a, path_b)
 
         if "error" in verification_result:
             raise HTTPException(
@@ -129,3 +132,5 @@ async def verify_two_faces(
     finally:
         if os.path.exists(path_b):
             os.remove(path_b)
+        if os.path.exists(path_a):
+            os.remove(path_a)
