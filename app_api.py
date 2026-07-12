@@ -2,7 +2,6 @@ from typing import Optional
 import os
 import tempfile
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
-from fastapi.concurrency import run_in_threadpool
 
 from src.face_engine import DeepFaceRecognitionEngine
 from src.geocoder import geocode_text_block
@@ -59,14 +58,12 @@ async def process_address_image(file: UploadFile = File(...)):
 
     try:
         extracted_text = await run_in_threadpool(ocr_service.extract_text, temp_file_path)
-
         if not extracted_text or not extracted_text.strip():
             return {
                 "ocr_status": "NO_TEXT_FOUND",
                 "extracted_text": "",
                 "geocoding_results": None,
             }
-
         spatial_payload = await run_in_threadpool(geocode_text_block, extracted_text)
         return {
             "ocr_status": "SUCCESS",
@@ -84,8 +81,13 @@ async def process_address_image(file: UploadFile = File(...)):
 
 
 # --- FACE ENCODING ---
-@app.post("/v1/face/encoding", status_code=status.HTTP_200_OK)
-async def generate_face_embedding(file: UploadFile = File(...)):
+@app.post(
+    "/v1/face/encoding",
+    status_code=status.HTTP_200_OK,
+)
+async def generate_face_embedding(
+    file: UploadFile = File(...),
+):
     validate_image_type(file.content_type)
     temp_file_path = await save_upload_file_safely(file)
 
@@ -112,7 +114,10 @@ async def generate_face_embedding(file: UploadFile = File(...)):
 
 
 # --- FACE VERIFICATION ---
-@app.post("/v1/face/verify", status_code=status.HTTP_200_OK)
+@app.post(
+    "/v1/face/verify",
+    status_code=status.HTTP_200_OK,
+)
 async def verify_two_faces(
     file_a: UploadFile = File(...),
     file_b: UploadFile = File(...),
@@ -133,7 +138,6 @@ async def verify_two_faces(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=verification_result["error"],
             )
-
         return verification_result
     except HTTPException:
         raise
