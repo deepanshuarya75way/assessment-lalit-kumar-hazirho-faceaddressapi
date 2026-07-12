@@ -16,7 +16,9 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 
 ALLOWED_MEDIA_TYPES = {"image/jpeg", "image/jpg", "image/png"}
 
-def validate_image_type(content_type: str) -> None:
+def validate_image_type(
+    content_type: str,
+) -> None:
     """Centralized validation helper to clean up duplicate endpoint validation."""
     if content_type not in ALLOWED_MEDIA_TYPES:
         raise HTTPException(
@@ -26,7 +28,9 @@ def validate_image_type(content_type: str) -> None:
 
 # --- ADDRESS PROCESSING ---
 @app.post("/v1/address/process", status_code=status.HTTP_200_OK)
-async def process_address_image(file: UploadFile = File(...)):
+async def process_address_image(
+    file: UploadFile = File(...),
+):
     validate_image_type(file.content_type)
 
     temp_file_path = os.path.join(TEMP_DIR, f"api_ocr_{os.getpid()}_{file.filename}")
@@ -60,7 +64,9 @@ async def process_address_image(file: UploadFile = File(...)):
 
 # --- FACE ENCODING ---
 @app.post("/v1/face/encoding", status_code=status.HTTP_200_OK)
-async def generate_face_embedding(file: UploadFile = File(...)):
+async def generate_face_embedding(
+    file: UploadFile = File(...),
+):
     validate_image_type(file.content_type)
 
     temp_file_path = os.path.join(TEMP_DIR, f"api_face_enc_{os.getpid()}_{file.filename}")
