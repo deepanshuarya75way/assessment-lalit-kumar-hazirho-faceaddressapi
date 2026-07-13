@@ -15,7 +15,6 @@ from src.face_engine import DeepFaceRecognitionEngine
 from src.geocoder import geocode_text_block
 from src.ocr_engine_rapid import RapidOCREngine
 
-
 app = FastAPI(title="Vision & Spatial Processing API")
 
 ocr_service = RapidOCREngine()
