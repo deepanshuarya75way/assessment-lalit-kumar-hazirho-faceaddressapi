@@ -1,5 +1,6 @@
 import os
 import googlemaps
+from googlemaps import geocoding
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,9 +19,9 @@ def geocode_text_block(address_text: str) -> dict:
         raise ValueError("Empty text block.")
 
     # Call the geocode method directly via the client instance
-    geocode_result = gmaps.geocode(query_string)
+    the_result = geocoding.geocode(gmaps, query_string)
 
-    if not geocode_result:
+    if not the_result:
         return {
             "status": "ZERO_RESULTS",
             "latitude": None,
@@ -28,7 +29,7 @@ def geocode_text_block(address_text: str) -> dict:
             "formatted_address": None,
         }
 
-    primary_match = geocode_result[0]
+    primary_match = the_result[0]
     coordinates = primary_match["geometry"]["location"]
 
     return {
