@@ -1,7 +1,8 @@
 import os
+
 import googlemaps
-from googlemaps import geocoding
 from dotenv import load_dotenv
+from googlemaps import geocoding
 
 load_dotenv()
 api_key = os.getenv("MAPS_API_KEY")
