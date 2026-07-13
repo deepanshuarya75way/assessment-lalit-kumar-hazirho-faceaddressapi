@@ -7,4 +7,4 @@ uv venv --python3.13
 source .venv/bin/activate
 
 #install dependencies
-uv pip install deepface tensorflow rapidocr_onnxruntime googlemaps fastapi uvicorn python-multipart toml tf-keras
+uv pip install deepface tensorflow rapidocr_onnxruntime googlemaps fastapi uvicorn python-multipart toml tf-keras opencv-python-headless
