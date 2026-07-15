@@ -1,9 +1,10 @@
+
 import time
 
-from geopy.exc import GeocoderServiceError
+from geopy.exc import GeocoderServiceError, GeocoderTimedOut
 from geopy.geocoders import Nominatim
 
-geocoding_agent = Nominatim()
+geocoding_agent = Nominatim(user_agent="lalitutwal")
 
 def geocode_text_block(address_text: str):
     query_string: str = address_text.strip()
@@ -15,7 +16,8 @@ def geocode_text_block(address_text: str):
 
     try:
         the_result = geocoding_agent.geocode(query_string)
-    except GeocoderServiceError as e:
+    except (GeocoderTimedOut, GeocoderServiceError) as e:
+        print(f"Geocoding error: {e}")
         return {
             "status": f"ERROR: {type(e).__name__}",
             "latitude": None,
@@ -31,7 +33,7 @@ def geocode_text_block(address_text: str):
             "formatted_address": None,
         }
 
-    print(the_result)
+    return the_result
 
 
 if __name__ == "__main__":
