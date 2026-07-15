@@ -6,7 +6,7 @@ from geopy.geocoders import Nominatim
 
 geocoding_agent = Nominatim(user_agent="lalitutwal")
 
-def geocode_text_block(address_text: str):
+def geocode_text_block(address_text: str) -> dict:
     query_string: str = address_text.strip()
     if not query_string:
         raise ValueError("Empty text block.")
@@ -33,10 +33,15 @@ def geocode_text_block(address_text: str):
             "formatted_address": None,
         }
 
-    return the_result
+    the_result = the_result.raw
+    return {
+        "status": "OK",
+        "latitude": the_result["lat"],
+        "longitude": the_result["lon"],
+        "formatted_address": the_result["display_name"],
+    }
 
 
 if __name__ == "__main__":
     result = geocode_text_block("1600 Amphitheatre Parkway, Mountain View, CA")
     print(result)
-    type(result)
