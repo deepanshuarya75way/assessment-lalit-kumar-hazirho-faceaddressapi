@@ -16,6 +16,7 @@ from src.face_engine import DeepFaceRecognitionEngine
 
 #from src.geocoder import geocode_text_block
 #from src.geocoder_geopy import geocode_geopy
+# https://apidocs.geoapify.com/ -- this site for api docs and getting an api key
 from src.geocoder_geoapify import geocode
 from src.ocr_engine_rapid import RapidOCREngine
 
