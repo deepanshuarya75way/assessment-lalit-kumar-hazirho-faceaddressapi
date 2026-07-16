@@ -2,6 +2,7 @@ import os
 import tempfile
 from typing import Optional
 
+import dotenv
 from fastapi import (
     FastAPI,
     File,
@@ -12,8 +13,14 @@ from fastapi import (
 from fastapi.concurrency import run_in_threadpool
 
 from src.face_engine import DeepFaceRecognitionEngine
-from src.geocoder import geocode_text_block
+
+#from src.geocoder import geocode_text_block
+#from src.geocoder_geopy import geocode_geopy
+from src.geocoder_geoapify import geocode
 from src.ocr_engine_rapid import RapidOCREngine
+
+dotenv.load_dotenv()
+apikey: str = str(os.environ.get("GEO_API_FY"))
 
 app = FastAPI(title="Vision & Spatial Processing API")
 
@@ -73,8 +80,9 @@ async def process_address_image(
             }
 
         result = await run_in_threadpool(
-            geocode_text_block,
-            text,
+            geocode,
+            address=text,
+            api_key=apikey
         )
 
         return {
