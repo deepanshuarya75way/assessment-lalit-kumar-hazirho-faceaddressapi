@@ -34,12 +34,12 @@ class LivenessDetectionEngine:
         self._warmup_models()
 
     def _warmup_models(self) -> None:
-        """Preloads DeepFace MiniFASNet weights into RAM on startup."""
+        """Preloads DeepFace detector and MiniFASNet weights into RAM on startup."""
         dummy_frame = np.zeros((224, 224, 3), dtype=np.uint8)
         try:
             DeepFace.extract_faces(
                 img_path=dummy_frame,
-                detector_backend="opencv",
+                detector_backend="yunet",
                 anti_spoofing=True,
                 enforce_detection=False,
             )
@@ -53,20 +53,28 @@ class LivenessDetectionEngine:
         Detects 2D flat surfaces (screens/prints) using DeepFace anti-spoofing
         combined with scale-normalized Laplacian skin texture variance.
         """
-        try:
-            faces = DeepFace.extract_faces(
-                img_path=frame,
-                detector_backend="opencv",
-                anti_spoofing=True,
-                enforce_detection=True,
-            )
-        except ValueError:
-            return 0.0, {"error": "no_face"}
+        faces = []
+        for backend in ("yunet", "opencv"):
+            try:
+                faces = DeepFace.extract_faces(
+                    img_path=frame,
+                    detector_backend=backend,
+                    anti_spoofing=True,
+                    enforce_detection=True,
+                )
+                if faces:
+                    break
+            except ValueError:
+                continue
 
         if not faces:
             return 0.0, {"error": "no_face"}
 
-        primary = faces[0]
+        primary = max(
+            faces,
+            key=lambda f: f.get("facial_area", {}).get("w", 0)
+            * f.get("facial_area", {}).get("h", 0),
+        )
         antispoof_score = float(primary.get("antispoof_score", 0.0))
         is_real = bool(primary.get("is_real", False))
 
@@ -77,7 +85,7 @@ class LivenessDetectionEngine:
         h = int(area.get("h", 0))
 
         face_crop = frame[y : y + h, x : x + w]
-        if face_crop.size == 0 or w < 80 or h < 80:
+        if face_crop.size == 0 or w < 40 or h < 40:
             return 0.0, {"error": "no_face"}
 
         gray = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)

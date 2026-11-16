@@ -1,6 +1,7 @@
+import io
 import os
 import tempfile
-from typing import Optional
+from typing import Annotated, Optional
 
 import cv2
 import dotenv
@@ -13,6 +14,7 @@ from fastapi import (
     status,
 )
 from fastapi.concurrency import run_in_threadpool
+from PIL import Image, ImageOps
 
 from src.face_engine import DeepFaceRecognitionEngine
 from src.geocoder_geoapify import geocode
@@ -20,7 +22,7 @@ from src.liveness_engine import LivenessDetectionEngine
 from src.ocr_engine_rapid import RapidOCREngine
 
 dotenv.load_dotenv()
-apikey: str = str(os.environ.get("GEO_API_FY", "5f1f17a85e55454087208f0d6aac52fd"))
+apikey: str = str(os.environ.get("GEO_API_FY"))
 
 app = FastAPI(title="Vision & Spatial Processing API")
 
@@ -40,6 +42,40 @@ def validate_image_type(content_type: Optional[str]) -> None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only JPEG and PNG images are supported.",
+        )
+
+
+def is_valid_image_bytes(raw_bytes: bytes) -> bool:
+    """Checks actual JPEG/PNG file signatures (magic bytes) rather than HTTP headers."""
+    is_jpeg = raw_bytes.startswith(b"\xff\xd8\xff")
+    is_png = raw_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    return is_jpeg or is_png
+
+
+async def read_and_decode_image(upload_file: UploadFile) -> np.ndarray:
+    """Reads uploaded bytes, validates image signature, fixes EXIF rotation, and returns BGR array."""
+    raw_bytes = await upload_file.read()
+    if not raw_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file is empty: {upload_file.filename}",
+        )
+
+    if not is_valid_image_bytes(raw_bytes):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Only valid JPEG and PNG images are supported: {upload_file.filename}",
+        )
+
+    try:
+        pil_img = Image.open(io.BytesIO(raw_bytes))
+        pil_img = ImageOps.exif_transpose(pil_img).convert("RGB")
+        frame = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        return frame
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid or corrupted image file: {upload_file.filename}",
         )
 
 
@@ -66,7 +102,7 @@ async def save_upload_file(upload_file: UploadFile) -> str:
     status_code=status.HTTP_200_OK,
 )
 async def process_address_image(
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File()],
 ):
     validate_image_type(file.content_type)
     temp_path = await save_upload_file(file)
@@ -117,7 +153,7 @@ async def process_address_image(
     status_code=status.HTTP_200_OK,
 )
 async def generate_face_embedding(
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File()],
 ):
     validate_image_type(file.content_type)
     temp_path = await save_upload_file(file)
@@ -161,8 +197,8 @@ async def generate_face_embedding(
     status_code=status.HTTP_200_OK,
 )
 async def verify_two_faces(
-    file_a: UploadFile = File(...),
-    file_b: UploadFile = File(...),
+    file_a: Annotated[UploadFile, File()],
+    file_b: Annotated[UploadFile, File()],
 ):
     validate_image_type(file_a.content_type)
     validate_image_type(file_b.content_type)
@@ -208,42 +244,19 @@ async def verify_two_faces(
 
 
 @app.post(
-    "/v1/face/liveness",
+    "/v1/face/liveness/single",
     status_code=status.HTTP_200_OK,
 )
-async def check_face_liveness(
-    files: list[UploadFile] = File(...),
+async def check_single_face_liveness(
+    file: Annotated[UploadFile, File()],
 ):
-    if not (1 <= len(files) <= 5):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Provide between 1 and 5 images.",
-        )
-
-    for file in files:
-        validate_image_type(file.content_type)
-
-    temp_paths: list[str] = []
-    frames: list[np.ndarray] = []
+    frame = await read_and_decode_image(file)
 
     try:
-        for file in files:
-            path = await save_upload_file(file)
-            temp_paths.append(path)
-
-            frame = await run_in_threadpool(cv2.imread, path)
-            if frame is None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid or corrupted image: {file.filename}",
-                )
-            frames.append(frame)
-
         result = await run_in_threadpool(
             liveness_service.evaluate,
-            frames,
+            [frame],
         )
-
         return result
 
     except HTTPException:
@@ -255,7 +268,37 @@ async def check_face_liveness(
             detail=str(exc),
         )
 
-    finally:
-        for path in temp_paths:
-            if os.path.exists(path):
-                os.remove(path)
+
+@app.post(
+    "/v1/face/liveness",
+    status_code=status.HTTP_200_OK,
+)
+async def check_face_liveness(
+    files: Annotated[list[UploadFile], File()],
+):
+    if not (1 <= len(files) <= 5):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide between 1 and 5 images.",
+        )
+
+    frames: list[np.ndarray] = []
+    for file in files:
+        frame = await read_and_decode_image(file)
+        frames.append(frame)
+
+    try:
+        result = await run_in_threadpool(
+            liveness_service.evaluate,
+            frames,
+        )
+        return result
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
