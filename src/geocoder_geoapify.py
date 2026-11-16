@@ -1,6 +1,9 @@
 import requests
 
 
+
+
+
 def geocode(address: str, api_key: str) -> dict:
     geoapify_url = "https://api.geoapify.com/v1/geocode/search"
 

@@ -2,7 +2,9 @@ import os
 import tempfile
 from typing import Optional
 
+import cv2
 import dotenv
+import numpy as np
 from fastapi import (
     FastAPI,
     File,
@@ -13,20 +15,18 @@ from fastapi import (
 from fastapi.concurrency import run_in_threadpool
 
 from src.face_engine import DeepFaceRecognitionEngine
-
-#from src.geocoder import geocode_text_block
-#from src.geocoder_geopy import geocode_geopy
-# https://apidocs.geoapify.com/ -- this site for api docs and getting an api key
 from src.geocoder_geoapify import geocode
+from src.liveness_engine import LivenessDetectionEngine
 from src.ocr_engine_rapid import RapidOCREngine
 
 dotenv.load_dotenv()
-apikey: str = str(os.environ.get("GEO_API_FY"))
+apikey: str = str(os.environ.get("GEO_API_FY", "5f1f17a85e55454087208f0d6aac52fd"))
 
 app = FastAPI(title="Vision & Spatial Processing API")
 
 ocr_service = RapidOCREngine()
 face_service = DeepFaceRecognitionEngine()
+liveness_service = LivenessDetectionEngine(threshold=0.75)
 
 ALLOWED_MEDIA_TYPES = {
     "image/jpeg",
@@ -46,7 +46,6 @@ def validate_image_type(content_type: Optional[str]) -> None:
 async def save_upload_file(upload_file: UploadFile) -> str:
     def write_file() -> str:
         ext = os.path.splitext(upload_file.filename or "")[1] or ".png"
-
         fd, path = tempfile.mkstemp(suffix=ext)
 
         with os.fdopen(fd, "wb") as file:
@@ -55,6 +54,11 @@ async def save_upload_file(upload_file: UploadFile) -> str:
         return path
 
     return await run_in_threadpool(write_file)
+
+
+##############
+#  ADDRESS
+##############
 
 
 @app.post(
@@ -83,7 +87,7 @@ async def process_address_image(
         result = await run_in_threadpool(
             geocode,
             address=text,
-            api_key=apikey
+            api_key=apikey,
         )
 
         return {
@@ -101,6 +105,11 @@ async def process_address_image(
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+###############
+# FACE ENCODING
+###############
 
 
 @app.post(
@@ -140,6 +149,11 @@ async def generate_face_embedding(
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+###############
+# FACE VERIFY
+###############
 
 
 @app.post(
@@ -186,3 +200,62 @@ async def verify_two_faces(
 
         if os.path.exists(path_b):
             os.remove(path_b)
+
+
+###################
+# LIVENESS CHECK
+###################
+
+
+@app.post(
+    "/v1/face/liveness",
+    status_code=status.HTTP_200_OK,
+)
+async def check_face_liveness(
+    files: list[UploadFile] = File(...),
+):
+    if not (1 <= len(files) <= 5):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide between 1 and 5 images.",
+        )
+
+    for file in files:
+        validate_image_type(file.content_type)
+
+    temp_paths: list[str] = []
+    frames: list[np.ndarray] = []
+
+    try:
+        for file in files:
+            path = await save_upload_file(file)
+            temp_paths.append(path)
+
+            frame = await run_in_threadpool(cv2.imread, path)
+            if frame is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid or corrupted image: {file.filename}",
+                )
+            frames.append(frame)
+
+        result = await run_in_threadpool(
+            liveness_service.evaluate,
+            frames,
+        )
+
+        return result
+
+    except HTTPException:
+        raise
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
+
+    finally:
+        for path in temp_paths:
+            if os.path.exists(path):
+                os.remove(path)
